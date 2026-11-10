@@ -1,0 +1,56 @@
+name: Deploy EventKita -> CapRover (PaaS)
+
+# Self-hosted runner: CI berjalan DI DALAM lab (runner GitHub-hosted tidak bisa
+# menjangkau 192.168.17.129 yang hanya tersedia di jaringan privat).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CAPROVER_HOST: ${{ secrets.CAPROVER_HOST }}
+  CAPROVER_PASSWORD: ${{ secrets.CAPROVER_PASSWORD }}
+
+jobs:
+  deploy-api:
+    name: Build & deploy API (NestJS :4000)
+    runs-on: [self-hosted, linux, eventkita]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Deploy ke CapRover (app: eventkita-api)
+        uses: caprover/deploy-to-caprover-action@v2
+        with:
+          host: ${{ secrets.CAPROVER_HOST }}
+          password: ${{ secrets.CAPROVER_PASSWORD }}
+          app: ${{ secrets.CAPROVER_API_APP }}
+          dockerfilePath: ./apps/api/Dockerfile
+          appBuildArgs: '["--build-arg","DATABASE_URL=${{ secrets.DATABASE_URL }}"]'
+
+  deploy-web:
+    name: Build & deploy Web (Next.js :3000)
+    runs-on: [self-hosted, linux, eventkita]
+    needs: deploy-api
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Deploy ke CapRover (app: eventkita-web)
+        uses: caprover/deploy-to-caprover-action@v2
+        with:
+          host: ${{ secrets.CAPROVER_HOST }}
+          password: ${{ secrets.CAPROVER_PASSWORD }}
+          app: ${{ secrets.CAPROVER_WEB_APP }}
+          dockerfilePath: ./apps/web/Dockerfile
+          appBuildArgs: '["--build-arg","API_INTERNAL_URL=http://srv-captain--eventkita-api:4000"]'
+
+  smoke-test:
+    name: Smoke test endpoint publik
+    runs-on: [self-hosted, linux, eventkita]
+    needs: deploy-web
+    steps:
+      - name: Cek halaman publik + API health
+        run: |
+          curl -sk -o /dev/null -w "web  /            -> HTTP %{http_code}\n" https://eventkita.jehanbravemuslim.com/
+          curl -sk -o /dev/null -w "api  /api/health  -> HTTP %{http_code}\n" https://eventkita.jehanbravemuslim.com/api/health

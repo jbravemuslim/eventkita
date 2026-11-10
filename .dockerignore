@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+.gitignore
+**/.next
+**/dist
+**/*.tsbuildinfo
+**/.env
+**/.env.local
+uploads
+backups
+README.md
+docs
+coverage

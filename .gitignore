@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+.npm/
+
+# build output
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# env & secrets (JANGAN pernah di-commit)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# uploads & data lokal
+uploads/
+*.log
+
+# backup & tooling
+.backup/
+coverage/
+.vscode/
+.idea/

@@ -1,0 +1,32 @@
+name: eventkita-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: eventkita-db-dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eventkita}
+      POSTGRES_USER: ${POSTGRES_USER:-eventkita}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eventkita}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eventkita} -d ${POSTGRES_DB:-eventkita}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: eventkita-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    volumes:
+      - mailpit_data:/data
+
+volumes:
+  pg_data_dev:
+  mailpit_data:
