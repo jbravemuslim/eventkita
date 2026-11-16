@@ -55,8 +55,10 @@ Di laptop end-user:
    ```
 2. Percayai CA lab:
    ```powershell
-   certutil -user -addstore Root "<path>\eventkita-ssl\lab-ca.crt"
+   certutil -user -addstore -f Root "<path>\eventkita-ssl\lab-ca.crt"
    ```
+   Ambil `lab-ca.crt` terbaru dari VM: `/home/jehanbravemuslim/eventkita-ssl/lab-ca.crt`.
+   Fingerprint-nya harus sama dengan `/opt/eventkita/ssl/lab-ca.crt` di VM.
 3. Buka `https://eventkita.jehanbravemuslim.com`.
 
 > Catatan: `curl` di Windows dapat menolak sertifikat CA lab karena tidak ada CRL.
@@ -289,6 +291,7 @@ curl -sk --resolve eventkita.jehanbravemuslim.com:443:127.0.0.1 \
 | Runner offline | service mati / permission | `systemctl restart 'actions.runner.*'`; pastikan `/opt/actions-runner` milik user service |
 | DNS salah | A record lama | `sudo python3 setup_k10.py dns --ip 192.168.17.128` |
 | Sertifikat kedaluwarsa | CA lab | `sudo python3 setup_k10.py cert` lalu `https` |
+| Browser menolak cert baru (`SEC_E_UNTRUSTED_ROOT`) | CA di laptop beda dengan CA server | bandingkan fingerprint `lab-ca.crt` laptop vs `/opt/eventkita/ssl/lab-ca.crt`; unduh ulang dari VM lalu `certutil -user -addstore -f Root ...` |
 
 ---
 
