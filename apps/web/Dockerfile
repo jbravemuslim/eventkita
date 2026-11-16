@@ -2,9 +2,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
-# API_INTERNAL_URL dibake saat build (Next rewrites dievaluasi pada build time),
-# mis. http://srv-captain--eventkita-api:4000 saat berjalan di CapRover.
-ARG API_INTERNAL_URL=http://localhost:4000
+# API_INTERNAL_URL dibake saat build (Next rewrites dievaluasi pada build time).
+# Default = nama service internal CapRover; compose lokal meng-override lewat build.args.
+ARG API_INTERNAL_URL=http://srv-captain--eventkita-api:4000
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 
 COPY package.json package-lock.json ./
@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-ENV API_INTERNAL_URL=http://api:4000
+ENV API_INTERNAL_URL=http://srv-captain--eventkita-api:4000
 
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static

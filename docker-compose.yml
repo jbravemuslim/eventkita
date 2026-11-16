@@ -71,6 +71,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:4000
     container_name: eventkita-web
     environment:
       NODE_ENV: production

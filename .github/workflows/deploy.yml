@@ -1,14 +1,14 @@
 name: Deploy EventKita -> CapRover (PaaS)
 
 # Self-hosted runner: CI berjalan DI DALAM lab (runner GitHub-hosted tidak bisa
-# menjangkau 192.168.17.129 yang hanya tersedia di jaringan privat).
+# menjangkau 192.168.17.128 yang hanya tersedia di jaringan privat).
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 env:
-  CAPROVER_HOST: ${{ secrets.CAPROVER_HOST }}
+  CAPROVER_URL: ${{ secrets.CAPROVER_URL }}
   CAPROVER_PASSWORD: ${{ secrets.CAPROVER_PASSWORD }}
 
 jobs:
@@ -20,13 +20,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy ke CapRover (app: eventkita-api)
-        uses: caprover/deploy-to-caprover-action@v2
-        with:
-          host: ${{ secrets.CAPROVER_HOST }}
-          password: ${{ secrets.CAPROVER_PASSWORD }}
-          app: ${{ secrets.CAPROVER_API_APP }}
-          dockerfilePath: ./apps/api/Dockerfile
-          appBuildArgs: '["--build-arg","DATABASE_URL=${{ secrets.DATABASE_URL }}"]'
+        env:
+          APP_NAME: eventkita-api
+          DOCKERFILE_PATH: ./apps/api/Dockerfile
+        run: bash scripts/ci_deploy.sh
 
   deploy-web:
     name: Build & deploy Web (Next.js :3000)
@@ -37,13 +34,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy ke CapRover (app: eventkita-web)
-        uses: caprover/deploy-to-caprover-action@v2
-        with:
-          host: ${{ secrets.CAPROVER_HOST }}
-          password: ${{ secrets.CAPROVER_PASSWORD }}
-          app: ${{ secrets.CAPROVER_WEB_APP }}
-          dockerfilePath: ./apps/web/Dockerfile
-          appBuildArgs: '["--build-arg","API_INTERNAL_URL=http://srv-captain--eventkita-api:4000"]'
+        env:
+          APP_NAME: eventkita-web
+          DOCKERFILE_PATH: ./apps/web/Dockerfile
+        run: bash scripts/ci_deploy.sh
 
   smoke-test:
     name: Smoke test endpoint publik
@@ -52,5 +46,10 @@ jobs:
     steps:
       - name: Cek halaman publik + API health
         run: |
-          curl -sk -o /dev/null -w "web  /            -> HTTP %{http_code}\n" https://eventkita.jehanbravemuslim.com/
-          curl -sk -o /dev/null -w "api  /api/health  -> HTTP %{http_code}\n" https://eventkita.jehanbravemuslim.com/api/health
+          set -e
+          curl -skf --resolve eventkita.jehanbravemuslim.com:443:127.0.0.1 \
+            -o /dev/null -w "web  /            -> HTTP %{http_code}\n" \
+            https://eventkita.jehanbravemuslim.com/
+          curl -skf --resolve eventkita.jehanbravemuslim.com:443:127.0.0.1 \
+            -o /dev/null -w "api  /api/health  -> HTTP %{http_code}\n" \
+            https://eventkita.jehanbravemuslim.com/api/health
