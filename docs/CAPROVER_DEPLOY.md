@@ -299,10 +299,13 @@ curl -sk --resolve eventkita.jehanbravemuslim.com:443:127.0.0.1 \
 
 ```bash
 # backup database
-docker exec eventkita-db pg_dump -U eventkita eventkita > backup-$(date +%F).sql
+docker exec $(docker ps --filter name=eventkita-db -q) \
+  pg_dump -U eventkita eventkita > backup-$(date +%F).sql
 
 # restore
-cat backup-YYYY-MM-DD.sql | docker exec -i eventkita-db psql -U eventkita eventkita
+cat backup-YYYY-MM-DD.sql | \
+  docker exec -i $(docker ps --filter name=eventkita-db -q) \
+  psql -U eventkita eventkita
 ```
 
 Backup juga file `.env`/secret CapRover di tempat aman. **Jangan commit** password,
