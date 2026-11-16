@@ -13,27 +13,27 @@ env:
 
 jobs:
   deploy-api:
-    name: Build & deploy API (NestJS :4000)
+    name: "Build & deploy API (NestJS :4000)"
     runs-on: [self-hosted, linux, eventkita]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Deploy ke CapRover (app: eventkita-api)
+      - name: "Deploy ke CapRover (app: eventkita-api)"
         env:
           APP_NAME: eventkita-api
           DOCKERFILE_PATH: ./apps/api/Dockerfile
         run: bash scripts/ci_deploy.sh
 
   deploy-web:
-    name: Build & deploy Web (Next.js :3000)
+    name: "Build & deploy Web (Next.js :3000)"
     runs-on: [self-hosted, linux, eventkita]
     needs: deploy-api
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Deploy ke CapRover (app: eventkita-web)
+      - name: "Deploy ke CapRover (app: eventkita-web)"
         env:
           APP_NAME: eventkita-web
           DOCKERFILE_PATH: ./apps/web/Dockerfile
