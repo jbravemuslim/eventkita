@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM mirror.gcr.io/library/node:24-alpine AS build
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -16,7 +16,7 @@ RUN npm run build -w @eventkita/shared
 RUN npm run db:generate -w @eventkita/api
 RUN npm run build -w @eventkita/api
 
-FROM node:24-alpine AS runner
+FROM mirror.gcr.io/library/node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

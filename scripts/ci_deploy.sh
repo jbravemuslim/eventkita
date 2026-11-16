@@ -67,9 +67,9 @@ for _ in $(seq 1 240); do
 
   if [ "$FAILED" = "true" ]; then
     echo "[ci_deploy] build $APP_NAME GAGAL" >&2
-    curl -fsS "$CAPROVER_URL/api/v2/user/apps/appData/$APP_NAME/logs" \
-      -H "x-captain-auth: $TOKEN" -H 'x-namespace: captain' 2>/dev/null \
-      | tail -c 4000 || true
+    printf '%s' "$STATUS" | python3 -c \
+      'import json,sys; d=json.load(sys.stdin).get("data",{}); print("\n".join((d.get("logs") or {}).get("lines") or []))' \
+      >&2 || true
     exit 1
   fi
   if [ "$BUILDING" = "false" ]; then
