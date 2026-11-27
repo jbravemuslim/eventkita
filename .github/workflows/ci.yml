@@ -1,0 +1,44 @@
+name: CI
+
+# Hanya quality gate. Deploy production dilakukan oleh Dokploy Auto Deploy
+# (webhook GitHub), bukan oleh workflow ini.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-build:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    env:
+      # Prisma generate membutuhkan env DATABASE_URL; tidak connect ke DB.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      API_INTERNAL_URL: http://api:4000
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

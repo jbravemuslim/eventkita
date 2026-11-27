@@ -1,3 +1,6 @@
+# LEGACY: Docker Compose + Caddy untuk docs/PROXMOX_DEPLOY.md.
+# Production resmi memakai Dokploy: docker-compose.dokploy.yml.
+# Jangan gunakan file ini sebagai jalur deployment tugas PaaS.
 name: eventkita
 
 services:

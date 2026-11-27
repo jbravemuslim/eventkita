@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import express from 'express';
@@ -10,14 +11,18 @@ import { join } from 'node:path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+
+  // API hanya diakses lewat web (same-origin rewrite Next.js) di production.
+  // Trust proxy agar IP klien dan protokol HTTPS dari Cloudflare/Traefik terbaca.
+  app.set('trust proxy', true);
 
   app.setGlobalPrefix('api');
   app.use(cookieParser());
 
   // Berkas statis (bukti pembayaran & QR tiket) disajikan API sendiri,
-  // supaya reverse proxy (nginx CapRover) cukup meneruskan /uploads/* .
+  // supaya reverse proxy (Traefik/Next.js rewrite) cukup meneruskan /uploads/* .
   const uploadDir = config.get<string>('UPLOAD_DIR') ?? join(process.cwd(), 'uploads');
   app.use('/uploads/public', express.static(join(uploadDir, 'public')));
   app.use(
@@ -35,6 +40,8 @@ async function bootstrap() {
     }),
   );
 
+  // Same-origin di production: browser memanggil /api lewat rewrite Next.js.
+  // WEB_ORIGIN hanya untuk deployment lintas-origin/legacy; biarkan kosong di Dokploy.
   const webOrigin = config.get<string>('WEB_ORIGIN');
   if (webOrigin) {
     app.enableCors({

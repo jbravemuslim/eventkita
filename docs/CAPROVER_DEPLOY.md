@@ -1,5 +1,14 @@
 # SOP Deployment EventKita di PaaS CapRover
 
+> **METODE LAMA.** Workflow CapRover sudah tidak dipakai. Deployment resmi
+> sekarang memakai **Dokploy**: lihat
+> [`docs/DOKPLOY_DEPLOY.md`](DOKPLOY_DEPLOY.md).
+>
+> Dokumen ini dipertahankan sebagai referensi metode CapRover. Workflow
+> `.github/workflows/deploy.yml` sudah dihapus; CI sekarang hanya typecheck +
+> build di `.github/workflows/ci.yml`, sedangkan deploy ditangani Dokploy
+> Auto Deploy.
+
 > Kelompok 10 — Platform PaaS untuk Sistem Tiket Event & Seminar Sekolah
 >
 > Topologi: Proxmox VE (`192.168.17.10`) → VM Ubuntu `192.168.17.128`
@@ -114,8 +123,8 @@ konfigurasi dan me-reload nginx, sehingga HTTPS tetap hidup tanpa langkah manual
 
 ## 4. Konfigurasi CapRover (app, database, env, domain)
 
-Login GUI `http://192.168.17.128:3000` (password awal `captain42` — **ganti** setelah
-setup), lalu:
+Login GUI `http://192.168.17.128:3000` (password admin CapRover — **ganti**
+default setelah setup), lalu:
 
 1. **Apps** → buat `eventkita-api` (HTTP port `4000`) dan `eventkita-web` (HTTP port `3000`).
 2. **One-click Apps** → PostgreSQL `eventkita-db`; catat connection string internal.
@@ -132,7 +141,7 @@ setup), lalu:
    | `SMTP_PORT` | `465` |
    | `SMTP_SECURE` | `true` |
    | `SMTP_USER` | `eventkita@jehanbravemuslim.com` |
-   | `SMTP_PASSWORD` | `<smtp-pass>` |
+   | `SMTP_PASS` | `<smtp-pass>` |
    | `SMTP_TLS_REJECT_UNAUTHORIZED` | `false` (CA mail lab) |
    | `SMTP_FROM` | `EventKita <eventkita@jehanbravemuslim.com>` |
 
@@ -160,14 +169,15 @@ docker exec -it $(docker ps --filter name=eventkita-api -q) \
   sh -lc "npm run db:seed"
 ```
 
-Seed membuat:
+Seed membuat akun dari environment (tidak ada password default di production):
 
 | Akun | Email | Password |
 |---|---|---|
-| Admin | `admin@eventkita.local` | `Admin12345!` |
-| Staff/Panitia | `staff@eventkita.local` | `Staff12345!` |
+| Admin | `SEED_ADMIN_EMAIL` | `SEED_ADMIN_PASSWORD` (wajib) |
+| Staff/Panitia | `SEED_STAFF_EMAIL` | `SEED_STAFF_PASSWORD` (opsional) |
 
-Data demo: 4 event (seminar/workshop) beserta tiket.
+Pastikan variabel tersebut tersedia di environment container API, atau jalankan
+seed dengan env inline. Data demo: 4 event (seminar/workshop) beserta tiket.
 
 ---
 

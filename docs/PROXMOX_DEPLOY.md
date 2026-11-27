@@ -1,5 +1,13 @@
 # Deploy EventKita ke Proxmox (VM + Docker Compose)
 
+> **METODE LAMA/ALTERNATIF.** Deployment resmi tugas PaaS sekarang memakai
+> **Dokploy**: lihat [`docs/DOKPLOY_DEPLOY.md`](DOKPLOY_DEPLOY.md).
+>
+> Dokumen ini dipertahankan untuk metode **Docker Compose + Caddy manual**.
+> File `docker-compose.yml` dan `deploy/caddy/Caddyfile` adalah legacy dan
+> tidak dipakai oleh Dokploy. Development lokal tetap memakai
+> `docker-compose.dev.yml`.
+
 Panduan ini untuk VM Linux di Proxmox. Untuk LXC, Docker bisa berjalan tetapi
 perlu opsi **nesting**; VM lebih sederhana dan lebih aman untuk production.
 

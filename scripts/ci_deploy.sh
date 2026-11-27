@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Deploy satu app EventKita ke CapRover memakai CapRover API v2.
+# LEGACY: deploy satu app EventKita ke CapRover memakai CapRover API v2.
+# Tidak dipakai lagi oleh workflow CI. Deployment resmi memakai Dokploy
+# Auto Deploy (lihat docs/DOKPLOY_DEPLOY.md).
 #
-# Dipakai oleh .github/workflows/deploy.yml di self-hosted runner (VM lab).
-# Tidak butuh CapRover CLI / action pihak ketiga; cukup curl, tar, python3.
+# Sebelumnya dipakai oleh .github/workflows/deploy.yml (sudah dihapus) di
+# self-hosted runner (VM lab). Tidak butuh CapRover CLI / action pihak ketiga;
+# cukup curl, tar, python3.
 #
 # Env wajib:
 #   CAPROVER_URL       contoh: http://127.0.0.1:3000

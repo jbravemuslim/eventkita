@@ -6,7 +6,9 @@ node_modules
 **/dist
 **/*.tsbuildinfo
 **/.env
+**/.env.*
 **/.env.local
+**/uploads
 uploads
 backups
 README.md

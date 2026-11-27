@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# LEGACY: deploy manual Docker Compose + Caddy.
+# Untuk Dokploy, jangan jalankan script ini. Cukup `git push` ke main;
+# Dokploy Auto Deploy yang membangun dan redeploy.
 set -euo pipefail
 
 # Deploy dari root repo di VM Proxmox.

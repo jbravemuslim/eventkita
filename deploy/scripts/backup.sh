@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# LEGACY: backup untuk docker-compose.yml (Caddy).
+# Untuk Dokploy, gunakan Volume Backups atau pg_dump dengan -p <app-name>
+# (lihat README / docs/DOKPLOY_DEPLOY.md).
 set -euo pipefail
 
 # Backup database + uploads. Jalankan dari root repo.

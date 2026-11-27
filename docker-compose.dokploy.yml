@@ -1,0 +1,133 @@
+# EventKita — production di Dokploy (Docker Compose).
+#
+# Konvensi Dokploy:
+# - Domain diatur dari tab Domains (Dokploy menambahkan label Traefik otomatis).
+# - Jangan memakai container_name statis.
+# - Jangan publish port 80/443; Traefik Dokploy yang menanganinya.
+# - Service web harus berada di dokploy-network agar bisa dijangkau Traefik.
+#
+# Migrasi Prisma dijalankan otomatis saat container API start.
+# Seed TIDAK otomatis; gunakan service `seed` (profile tools) secara manual.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eventkita}
+      POSTGRES_USER: ${POSTGRES_USER:-eventkita}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD di environment Dokploy}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    expose:
+      - "5432"
+    networks:
+      - internal
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["sh", "-c", "npx prisma migrate deploy && exec node dist/main.js"]
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL di environment Dokploy}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET di environment Dokploy}
+      COOKIE_NAME: ${COOKIE_NAME:-eventkita_session}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN di environment Dokploy}
+      UPLOAD_DIR: /app/uploads
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST di environment Dokploy}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:?Set SMTP_FROM di environment Dokploy}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_TLS_REJECT_UNAUTHORIZED: ${SMTP_TLS_REJECT_UNAUTHORIZED:-true}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    expose:
+      - "4000"
+    networks:
+      - internal
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Next.js mengevaluasi rewrites saat build; nilai ini harus sama dengan
+        # service API internal di network Compose.
+        API_INTERNAL_URL: http://api:4000
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - internal
+      - dokploy-network
+
+  # Seed manual saja. Tidak ikut `docker compose up` karena profile tools.
+  # Jalankan lewat terminal container API atau:
+  #   docker compose --profile tools run --rm seed
+  seed:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run db:seed"]
+    profiles: ["tools"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL di environment Dokploy}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin EventKita}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@eventkita.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_STAFF_NAME: ${SEED_STAFF_NAME:-Staff Check-in}
+      SEED_STAFF_EMAIL: ${SEED_STAFF_EMAIL:-staff@eventkita.local}
+      SEED_STAFF_PASSWORD: ${SEED_STAFF_PASSWORD:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - internal
+
+volumes:
+  pg_data:
+  uploads_data:
+
+networks:
+  internal:
+    driver: bridge
+  dokploy-network:
+    external: true

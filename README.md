@@ -6,7 +6,7 @@ Platform pendaftaran dan event ticketing komunitas. Monorepo berisi:
 - `apps/api` — NestJS 12 + Prisma 6
 - `packages/shared` — tipe dan skema bersama
 - PostgreSQL 16 + Mailpit (development)
-- Docker Compose + Caddy untuk deployment VM Proxmox
+- Dokploy (PaaS self-hosted) + Traefik + Cloudflare Tunnel untuk production
 
 Status saat ini: **Fase 1 — Fondasi**. Autentikasi, database, seed, landing page,
 detail acara, dan dashboard dasar sudah berjalan. Checkout tiket masuk Fase 2–3.
@@ -65,12 +65,16 @@ Buka:
 - Swagger: http://localhost:4000/api/docs
 - Mailpit: http://localhost:8025
 
-### Akun seed
+### Akun seed (development)
 
 | Role | Email | Password |
 |---|---|---|
 | Admin | `admin@eventkita.local` | `Admin12345!` |
 | Staff | `staff@eventkita.local` | `Staff12345!` |
+
+Password di atas hanya untuk development (berasal dari
+`apps/api/.env.example`). Production wajib memakai `SEED_ADMIN_PASSWORD`
+sendiri; `SEED_STAFF_PASSWORD` opsional (kalau kosong, akun staff dilewati).
 
 Seed juga membuat empat acara demo: Workshop Produk Digital untuk Komunitas,
 Meetup Komunitas Kreatif, Festival Musik Lokal 2026, dan Seminar Teknologi
@@ -102,48 +106,115 @@ npm run db:migrate       # Buat/terapkan migrasi saat development
 | `GET` | `/api/events/:slug` | Detail acara |
 
 Autentikasi memakai JWT di cookie `httpOnly`, `SameSite=Lax`, dan `Secure` saat
-`NODE_ENV=production`. Browser mengakses API lewat origin yang sama (rewrite
-Next.js di development, Caddy di production), sehingga tidak ada CORS.
+`NODE_ENV=production`/`COOKIE_SECURE=true`. Browser mengakses API lewat origin
+yang sama: Next.js me-rewrite `/api/*` ke API internal (`API_INTERNAL_URL`),
+dan hanya domain web yang diekspos Traefik/Cloudflare. Tidak ada CORS.
 
 ---
 
-## Docker production-like
+## Deploy production (Dokploy)
+
+Metode resmi tugas PaaS: **Dokploy** di VM Proxmox VE, reverse proxy
+**Traefik** milik Dokploy, PostgreSQL sebagai container, dan akses internet
+lewat **Cloudflare Tunnel**. Deploy dilakukan oleh **Dokploy Auto Deploy**
+(webhook GitHub), bukan script deploy manual.
+
+Panduan langkah demi langkah (dengan penanda screenshot):
+[`docs/DOKPLOY_DEPLOY.md`](docs/DOKPLOY_DEPLOY.md).
+
+### Langkah singkat
+
+1. Buat VM Ubuntu 24.04 di Proxmox, install Dokploy.
+2. Hubungkan GitHub App di Dokploy.
+3. Buat Compose service:
+   - Repo: `jbravemuslim/eventkita`
+   - Branch: `main`
+   - Compose Path: `./docker-compose.dokploy.yml`
+   - Compose Type: Docker Compose
+4. Isi environment production dari `.env.example` ke tab **Environment**
+   Dokploy. Jangan commit `.env`.
+5. Tambahkan domain aplikasi ke service `web` port `3000` dari tab
+   **Domains**. Jangan memberi domain untuk `api`/`db`.
+6. Buat Cloudflare Tunnel:
+   - `eventkita.example.com` → `http://dokploy-traefik:80`
+   - `dokploy.example.com` → `http://dokploy:3000` (panel, untuk webhook
+     GitHub; lindungi dengan Cloudflare Access + application path `api/deploy`
+     yang di-bypass)
+7. Aktifkan **Auto Deploy**. Setiap `git push` ke `main` akan build dan
+   redeploy otomatis.
+8. Migrasi Prisma berjalan otomatis saat API start. Seed **manual** lewat
+   terminal container API atau service `seed` (profile `tools`).
+
+### Environment penting
+
+- `DATABASE_URL` harus memakai host `db` dan password yang sama dengan
+  `POSTGRES_PASSWORD`.
+- `COOKIE_SECURE=true` untuk production HTTPS.
+- `APP_ORIGIN` = URL publik aplikasi.
+- `SMTP_HOST/PORT/USER/PASS/FROM` memakai SMTP sungguhan. Mailpit hanya untuk
+  development (`docker-compose.dev.yml`).
+- `SEED_ADMIN_PASSWORD` wajib saat seed; tidak ada password default.
+
+Daftar lengkap ada di [`docs/DOKPLOY_DEPLOY.md`](docs/DOKPLOY_DEPLOY.md).
+
+### Seed manual
+
+Seed tidak otomatis di production. Dari terminal container API:
 
 ```bash
-copy .env.example .env
-# Edit .env: POSTGRES_PASSWORD, JWT_SECRET, SEED_ADMIN_PASSWORD, APP_DOMAIN
-
-docker compose up -d --build
-docker compose --profile tools run --rm seed
+SEED_ADMIN_NAME='Admin EventKita' \
+SEED_ADMIN_EMAIL='admin@example.com' \
+SEED_ADMIN_PASSWORD='<password-kuat>' \
+npm run db:seed
 ```
 
-`APP_DOMAIN=:80` cocok untuk akses lewat IP di LAN. Untuk domain + HTTPS otomatis,
-isi `APP_DOMAIN=eventkita.example.com` dan arahkan DNS ke VM.
+Atau lewat service `seed` dari direktori compose Dokploy (pastikan
+`SEED_ADMIN_PASSWORD` ada di environment/.env):
 
-Set `COOKIE_SECURE=true` hanya jika sudah memakai HTTPS. Kalau masih HTTP di LAN,
-biarkan `false` supaya cookie login tetap terkirim.
+```bash
+docker compose -p <app-name> -f docker-compose.dokploy.yml \
+  --profile tools run --rm seed
+```
 
-Panduan lengkap VM Proxmox ada di [`docs/PROXMOX_DEPLOY.md`](docs/PROXMOX_DEPLOY.md).
-
-> **Penting untuk scanner kamera:** browser hanya mengizinkan kamera di secure
-> context. Gunakan domain + HTTPS (Caddy otomatis) atau `localhost`. Kalau akses
-> lewat `http://IP-LAN`, scanner kamera tidak akan jalan; input kode manual tetap
-> tersedia.
+Seed juga membuat/memperbarui empat event demo dan menimpa setting rekening
+contoh. Review dulu, dan jangan jalankan ulang setelah data production nyata
+diisi.
 
 ### Backup
 
+Gunakan **Volume Backups** Dokploy untuk volume `pg_data` dan `uploads_data`
+(butuh S3 destination), atau dump PostgreSQL dari container `db`:
+
 ```bash
-bash deploy/scripts/backup.sh
+docker compose -p <app-name> -f docker-compose.dokploy.yml exec -T db \
+  sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > backup-db.sql.gz
 ```
 
-Menyimpan dump PostgreSQL dan volume uploads ke `./backups`, lalu menghapus file
-lebih dari 7 hari.
+Jalankan dari direktori compose Dokploy (mis.
+`/etc/dokploy/compose/<app-name>/code`). Script lama
+`deploy/scripts/backup.sh` hanya untuk compose legacy Caddy.
 
 ### Deploy update
 
 ```bash
-bash deploy/scripts/deploy.sh
+git push origin main
 ```
+
+Dokploy Auto Deploy membangun image baru dan redeploy. Workflow GitHub Actions
+`ci.yml` hanya menjalankan typecheck + build, tidak melakukan deploy.
+
+> **Penting untuk scanner kamera:** browser hanya mengizinkan kamera di secure
+> context. Gunakan domain + HTTPS (Cloudflare Tunnel) atau `localhost`. Kalau
+> akses lewat `http://IP-LAN`, scanner kamera tidak akan jalan; input kode
+> manual tetap tersedia.
+
+### Metode lama/alternatif
+
+- [`docs/PROXMOX_DEPLOY.md`](docs/PROXMOX_DEPLOY.md) — Docker Compose + Caddy
+  manual (legacy).
+- [`docs/CAPROVER_DEPLOY.md`](docs/CAPROVER_DEPLOY.md) — CapRover (legacy).
+- `docker-compose.yml` dan `deploy/caddy/Caddyfile` hanya untuk metode legacy.
+- `docker-compose.dev.yml` tetap dipakai untuk development lokal.
 
 ---
 
@@ -153,4 +224,4 @@ bash deploy/scripts/deploy.sh
   upload bukti, verifikasi pembayaran, tiket, QR, email, check-in.
 - **Fase 3:** checkout peserta, status order, e-ticket, profil.
 - **Fase 4:** dashboard admin, scanner kamera, laporan CSV, staff.
-- **Fase 5:** test kritis, seed demo lengkap, dokumentasi Proxmox, backup/restore.
+- **Fase 5:** test kritis, seed demo lengkap, dokumentasi deployment, backup/restore.

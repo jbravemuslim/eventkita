@@ -202,11 +202,17 @@ async function upsertUser(input: {
 
 async function main() {
   const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'admin@eventkita.local').toLowerCase();
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Admin12345!';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   const adminName = process.env.SEED_ADMIN_NAME ?? 'Admin EventKita';
 
+  if (!adminPassword) {
+    throw new Error(
+      'SEED_ADMIN_PASSWORD wajib diisi. Seed tidak memakai password default.',
+    );
+  }
+
   const staffEmail = (process.env.SEED_STAFF_EMAIL ?? 'staff@eventkita.local').toLowerCase();
-  const staffPassword = process.env.SEED_STAFF_PASSWORD ?? 'Staff12345!';
+  const staffPassword = process.env.SEED_STAFF_PASSWORD;
   const staffName = process.env.SEED_STAFF_NAME ?? 'Staff Check-in';
 
   await upsertUser({
@@ -216,12 +222,16 @@ async function main() {
     role: 'ADMIN',
   });
 
-  await upsertUser({
-    name: staffName,
-    email: staffEmail,
-    password: staffPassword,
-    role: 'STAFF',
-  });
+  if (staffPassword) {
+    await upsertUser({
+      name: staffName,
+      email: staffEmail,
+      password: staffPassword,
+      role: 'STAFF',
+    });
+  } else {
+    console.log('SEED_STAFF_PASSWORD tidak diisi; akun staff dilewati.');
+  }
 
   for (const demoEvent of demoEvents) {
     const { ticketTypes, ...eventData } = demoEvent;
@@ -272,8 +282,10 @@ async function main() {
   });
 
   console.log('Seed selesai.');
-  console.log(`Admin : ${adminEmail} / ${adminPassword}`);
-  console.log(`Staff : ${staffEmail} / ${staffPassword}`);
+  console.log(`Admin : ${adminEmail}`);
+  if (staffPassword) {
+    console.log(`Staff : ${staffEmail}`);
+  }
 }
 
 main()

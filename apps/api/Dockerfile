@@ -1,6 +1,9 @@
 FROM mirror.gcr.io/library/node:24-alpine AS build
 WORKDIR /app
 
+# Prisma di Alpine membutuhkan OpenSSL.
+RUN apk add --no-cache openssl
+
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
@@ -19,9 +22,14 @@ RUN npm run build -w @eventkita/api
 FROM mirror.gcr.io/library/node:24-alpine AS runner
 WORKDIR /app
 
+# Dipakai Prisma CLI (`prisma migrate deploy`) dan seed manual.
+RUN apk add --no-cache openssl
+
 ENV NODE_ENV=production
 ENV PORT=4000
 
+# Sengaja menyalin seluruh node_modules (termasuk Prisma CLI dan tsx) karena
+# `prisma migrate deploy` dan seed manual dijalankan dari image ini.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/apps/api ./apps/api
